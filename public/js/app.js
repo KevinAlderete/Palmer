@@ -497,7 +497,7 @@
     } else if (element.type === 'link') {
       node = document.createElement('a');
       node.href = attrs.href || '#';
-      node.textContent = element.content;
+      applyTextContent(node, element);
       if (attrs.targetBlank !== false) {
         node.target = '_blank';
         node.rel = 'noopener noreferrer';
@@ -508,7 +508,7 @@
     } else if (element.type === 'button') {
       node = document.createElement('a');
       node.href = attrs.href || '#';
-      node.textContent = element.content;
+      applyTextContent(node, element);
       node.className = (attrs.className || 'btn btn-primary') + ' design-node';
       node.style.display = 'flex';
       node.style.alignItems = 'center';
@@ -527,24 +527,24 @@
       node.style.placeItems = 'center';
     } else if (element.type === 'badge') {
       node = document.createElement('span');
-      node.textContent = element.content;
+      applyTextContent(node, element);
       node.className = (attrs.className || 'badge badge-primary') + ' design-node';
       node.style.display = 'flex';
       node.style.alignItems = 'center';
       node.style.justifyContent = sAlign(element.style.textAlign);
     } else if (element.type === 'card') {
       node = document.createElement('div');
-      node.textContent = element.content;
+      applyTextContent(node, element);
       node.className = (attrs.className || 'card') + ' design-node node-card';
     } else if (element.type === 'alert') {
       node = document.createElement('div');
-      node.textContent = element.content;
+      applyTextContent(node, element);
       node.className = (attrs.className || 'alert alert-info') + ' design-node';
     } else if (element.type === 'navbar') {
       node = createNavbarNode(element);
     } else if (element.type === 'hero') {
       node = document.createElement('section');
-      node.textContent = element.content;
+      applyTextContent(node, element);
       node.style.whiteSpace = 'pre-wrap';
     } else if (element.type === 'table') {
       node = createTableNode(element);
@@ -597,7 +597,7 @@
       node = createAvatarGroupNode(element);
     } else if (isDesignComponent(element.type)) {
       node = document.createElement(element.type === 'quote' ? 'blockquote' : 'div');
-      node.textContent = element.content;
+      applyTextContent(node, element);
       node.style.whiteSpace = 'pre-wrap';
     } else {
       node = document.createElement('div');
@@ -620,6 +620,7 @@
     if (element.visible && element.type === 'card') {
       node.style.display = 'flex';
       node.style.alignItems = 'center';
+      node.style.justifyContent = sAlign(element.style.textAlign);
     }
 
     node.addEventListener('pointerdown', onNodePointerDown);
@@ -658,7 +659,7 @@
   }
 
   function isRichTextElement(element) {
-    return element && ['heading', 'text'].includes(element.type);
+    return element && ['heading', 'text', 'link', 'button', 'badge', 'card', 'alert', 'hero', 'glass', 'stat', 'pricing', 'quote', 'feature', 'timeline', 'mockup', 'notification', 'gradientPanel'].includes(element.type);
   }
 
   function applyTextContent(node, element) {
@@ -1072,9 +1073,16 @@
   function applyStyleToTextSelection(node, styles, saveSelection, restoreSelection) {
     restoreSelection();
     const selection = window.getSelection();
-    if (!selection || !selection.rangeCount || !selectionInside(node)) return;
-    const range = selection.getRangeAt(0);
-    if (range.collapsed) return;
+    let range = null;
+    if (selection && selection.rangeCount && selectionInside(node)) range = selection.getRangeAt(0);
+    if (!range || range.collapsed) {
+      range = document.createRange();
+      range.selectNodeContents(node);
+      if (selection) {
+        selection.removeAllRanges();
+        selection.addRange(range);
+      }
+    }
     const span = document.createElement('span');
     Object.keys(styles).forEach(function (key) { span.style[key] = styles[key]; });
     try {
@@ -1084,6 +1092,10 @@
       span.appendChild(fragment);
       range.insertNode(span);
     }
+    span.querySelectorAll('*').forEach(function (child) {
+      Object.keys(styles).forEach(function (key) { child.style[key] = ''; });
+      if (!child.getAttribute('style')) child.removeAttribute('style');
+    });
     selection.removeAllRanges();
     const nextRange = document.createRange();
     nextRange.selectNodeContents(span);
@@ -1094,9 +1106,42 @@
   function createRichTextToolbar(node, element, saveSelection, restoreSelection) {
     const toolbar = document.createElement('div');
     toolbar.className = 'rich-text-toolbar';
-    toolbar.style.left = clamp(element.x, 4, Math.max(4, state.canvas.width - 360)) + 'px';
+    toolbar.style.left = clamp(element.x, 4, Math.max(4, state.canvas.width - 620)) + 'px';
     toolbar.style.top = Math.max(4, element.y - 42) + 'px';
     toolbar.addEventListener('pointerdown', function (event) { event.stopPropagation(); });
+
+    function select(options, value, title, className, action) {
+      const control = document.createElement('select');
+      if (className) control.className = className;
+      options.forEach(function (item) {
+        const option = document.createElement('option');
+        option.value = String(item.value);
+        option.textContent = item.label;
+        control.appendChild(option);
+      });
+      control.value = value;
+      control.title = title;
+      control.addEventListener('focus', saveSelection);
+      control.addEventListener('change', function () {
+        action(control.value);
+        node.focus();
+      });
+      toolbar.appendChild(control);
+      return control;
+    }
+
+    function applyElementTextStyle(key, value) {
+      node.style[key] = value;
+      element.style[key] = value;
+      if (key === 'textAlign') node.style.justifyContent = sAlign(value);
+      saveSelection();
+    }
+
+    function iconButton(icon, title, action) {
+      const control = button('', title, action);
+      control.innerHTML = '<i class="bi ' + icon + '"></i>';
+      return control;
+    }
 
     function button(label, title, action) {
       const control = document.createElement('button');
@@ -1117,22 +1162,42 @@
     button('B', 'Negrita', function () { document.execCommand('bold', false); });
     button('I', 'Cursiva', function () { document.execCommand('italic', false); });
     button('U', 'Subrayado', function () { document.execCommand('underline', false); });
+    button('S', 'Tachado', function () { document.execCommand('strikeThrough', false); });
 
-    const fontSize = document.createElement('select');
-    [8, 10, 11, 12, 13, 14, 15, 16, 18, 20, 24, 28, 32, 36, 40, 44, 48, 56, 64, 72, 96].forEach(function (size) {
-      const option = document.createElement('option');
-      option.value = String(size);
-      option.textContent = size + ' px';
-      fontSize.appendChild(option);
+    select([
+      { value: 'Arial, sans-serif', label: 'Arial' },
+      { value: 'Helvetica, Arial, sans-serif', label: 'Helvetica' },
+      { value: 'Georgia, serif', label: 'Georgia' },
+      { value: 'Trebuchet MS, sans-serif', label: 'Trebuchet' },
+      { value: 'Courier New, monospace', label: 'Courier' }
+    ], element.style.fontFamily || 'Arial, sans-serif', 'Fuente', 'rich-text-font-family', function (value) {
+      applyStyleToTextSelection(node, { fontFamily: value }, saveSelection, restoreSelection);
     });
-    fontSize.value = cleanNumber(element.style.fontSize, 16);
-    fontSize.title = 'Tamaño de fuente';
-    fontSize.addEventListener('focus', saveSelection);
-    fontSize.addEventListener('change', function () {
-      const size = Math.max(1, cleanNumber(fontSize.value, element.style.fontSize || 16));
+
+    select([8, 10, 11, 12, 13, 14, 15, 16, 18, 20, 24, 28, 32, 36, 40, 44, 48, 56, 64, 72, 96].map(function (size) {
+      return { value: size, label: size + ' px' };
+    }), cleanNumber(element.style.fontSize, 16), 'Tamaño de fuente', '', function (value) {
+      const size = Math.max(1, cleanNumber(value, element.style.fontSize || 16));
       applyStyleToTextSelection(node, { fontSize: size + 'px' }, saveSelection, restoreSelection);
     });
-    toolbar.appendChild(fontSize);
+
+    iconButton('bi-text-left', 'Alinear a la izquierda', function () { applyElementTextStyle('textAlign', 'left'); });
+    iconButton('bi-text-center', 'Centrar', function () { applyElementTextStyle('textAlign', 'center'); });
+    iconButton('bi-text-right', 'Alinear a la derecha', function () { applyElementTextStyle('textAlign', 'right'); });
+    iconButton('bi-justify', 'Justificar', function () { applyElementTextStyle('textAlign', 'justify'); });
+
+    select([
+      { value: '1', label: '1.0' },
+      { value: '1.15', label: '1.15' },
+      { value: '1.35', label: '1.35' },
+      { value: '1.5', label: '1.5' },
+      { value: '1.75', label: '1.75' },
+      { value: '2', label: '2.0' }
+    ], String(element.style.lineHeight || 1.35), 'Interlineado', 'rich-text-line-height', function (value) {
+      applyElementTextStyle('lineHeight', value);
+    });
+
+    iconButton('bi-eraser', 'Limpiar formato', function () { document.execCommand('removeFormat', false); });
 
     const color = document.createElement('input');
     color.type = 'color';
@@ -1159,6 +1224,8 @@
 
     const original = element.content;
     const originalRichText = element.attrs && element.attrs.richText;
+    const originalStyle = clone(element.style);
+    const originalStyleJson = JSON.stringify(originalStyle);
     const selection = window.getSelection();
     const range = document.createRange();
     let savedRange = null;
@@ -1202,16 +1269,19 @@
 
       if (!save) {
         element.content = original;
+        element.style = clone(originalStyle);
         element.attrs = element.attrs || {};
         if (originalRichText) element.attrs.richText = originalRichText;
         else delete element.attrs.richText;
         applyTextContent(node, element);
+        applyNodeStyles(node, element);
         return;
       }
 
       const next = node.textContent;
       const nextRichText = isRichTextElement(element) ? sanitizeRichText(node.innerHTML) : '';
-      if (next !== element.content || nextRichText !== originalRichText) {
+      const styleChanged = JSON.stringify(element.style) !== originalStyleJson;
+      if (next !== element.content || nextRichText !== originalRichText || styleChanged) {
         element.content = next;
         if (isRichTextElement(element)) {
           element.attrs = element.attrs || {};
@@ -2015,9 +2085,15 @@
     return /^[#\w\s.,()%+-]+$/.test(String(value || '')) ? String(value) : '';
   }
 
+  function safeFontFamily(value) {
+    return /^[\w\s"',.-]+$/.test(String(value || '')) ? String(value) : '';
+  }
+
   function sanitizeStyle(style, fontSizeAttr, colorAttr) {
     const items = [];
-    const fontSize = cleanNumber(style.fontSize, 0);
+    const fontFamily = safeFontFamily(style.fontFamily);
+    if (fontFamily) items.push('font-family: ' + fontFamily);
+    const fontSize = cssNumber(style.fontSize, 0);
     if (fontSize > 0 && fontSize <= 300) items.push('font-size: ' + fontSize + 'px');
     if (fontSizeAttr) {
       const sizes = { 1: 10, 2: 13, 3: 16, 4: 18, 5: 24, 6: 32, 7: 48 };
@@ -2033,7 +2109,10 @@
     const fontStyle = safeCssValue(style.fontStyle);
     if (/^(normal|italic)$/.test(fontStyle)) items.push('font-style: ' + fontStyle);
     const decoration = safeCssValue(style.textDecorationLine || style.textDecoration);
-    if (/underline/.test(decoration)) items.push('text-decoration: underline');
+    const decorations = [];
+    if (/underline/.test(decoration)) decorations.push('underline');
+    if (/line-through/.test(decoration)) decorations.push('line-through');
+    if (decorations.length) items.push('text-decoration: ' + decorations.join(' '));
     return items.length ? ' style="' + escapeHtml(items.join('; ') + ';') + '"' : '';
   }
 
@@ -2051,6 +2130,7 @@
       if (tag === 'b' || tag === 'strong') return '<strong>' + content + '</strong>';
       if (tag === 'i' || tag === 'em') return '<em>' + content + '</em>';
       if (tag === 'u') return '<u>' + content + '</u>';
+      if (tag === 's' || tag === 'strike' || tag === 'del') return '<span style="text-decoration: line-through;">' + content + '</span>';
       if (tag === 'span' || tag === 'font') {
         const style = sanitizeStyle(node.style, node.getAttribute('size'), node.getAttribute('color'));
         return '<span' + style + '>' + content + '</span>';
@@ -2112,6 +2192,11 @@
       items['justify-content'] = sAlign(s.textAlign);
     }
     if (element.type === 'link') {
+      items.display = 'flex';
+      items['align-items'] = 'center';
+      items['justify-content'] = sAlign(s.textAlign);
+    }
+    if (element.type === 'card') {
       items.display = 'flex';
       items['align-items'] = 'center';
       items['justify-content'] = sAlign(s.textAlign);

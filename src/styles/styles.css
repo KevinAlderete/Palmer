@@ -116,10 +116,12 @@ button { cursor: pointer; }
 .node-table .selected-table-cell { background-color: rgba(37, 99, 235, .10); }
 .node-table .active-table-cell { box-shadow: inset 0 0 0 2px #1677ff; }
 .node-table [contenteditable="true"] { cursor: text; outline: 2px solid #1677ff; outline-offset: -2px; user-select: text; -webkit-user-select: text; }
-.rich-text-toolbar { position: absolute; z-index: 10030; display: flex; align-items: center; gap: 4px; padding: 5px; border: 1px solid #c7d7f3; border-radius: 8px; background: rgba(255,255,255,.97); box-shadow: 0 10px 25px rgba(15,23,42,.18); pointer-events: auto; }
-.rich-text-toolbar button { width: 25px; height: 24px; border: 1px solid #d8e0eb; border-radius: 5px; background: #fff; color: #334155; font-size: 11px; font-weight: 800; }
+.rich-text-toolbar { position: absolute; z-index: 10030; display: flex; flex-wrap: wrap; align-items: center; gap: 4px; max-width: calc(100% - 8px); padding: 5px; border: 1px solid #c7d7f3; border-radius: 8px; background: rgba(255,255,255,.97); box-shadow: 0 10px 25px rgba(15,23,42,.18); pointer-events: auto; }
+.rich-text-toolbar button { min-width: 25px; width: auto; height: 24px; padding: 0 6px; border: 1px solid #d8e0eb; border-radius: 5px; background: #fff; color: #334155; font-size: 11px; font-weight: 800; }
 .rich-text-toolbar button:hover { border-color: #8fb5f7; background: #eef5ff; color: #1f5fc8; }
 .rich-text-toolbar select { width: 68px; height: 24px; padding: 2px 5px; border: 1px solid #d8e0eb; border-radius: 5px; background: #fff; color: #2d3c52; font-size: 10px; outline: none; }
+.rich-text-toolbar .rich-text-font-family { width: 98px; }
+.rich-text-toolbar .rich-text-line-height { width: 54px; }
 .rich-text-toolbar input[type="color"] { width: 27px; height: 24px; padding: 2px; border: 1px solid #d8e0eb; border-radius: 5px; background: #fff; }
 .table-canvas-toolbar { position: absolute; z-index: 10020; display: flex; align-items: center; gap: 4px; max-width: calc(100% - 8px); padding: 5px; border: 1px solid #c7d7f3; border-radius: 8px; background: rgba(255,255,255,.96); box-shadow: 0 10px 25px rgba(15,23,42,.18); pointer-events: auto; }
 .table-canvas-toolbar button { height: 24px; padding: 0 7px; border: 1px solid #d8e0eb; border-radius: 5px; background: #fff; color: #40516a; font-size: 10px; font-weight: 700; white-space: nowrap; }
